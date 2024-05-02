@@ -79,8 +79,9 @@ func main() {
     // Define the operand type
     operandType := map[string]interface{}{
         "dataType":   "float32",
-        "dimensions": sliceToTypedArray([]float32{2, 2}),
+        "dimensions": []any{2, 2},
     }
+
 
     v0 := js.Global().Get("Array").New(5)
     for i := 0; i < v0.Length(); i++ {
@@ -145,6 +146,10 @@ func main() {
     // Prepare inputs A and B
     bufferA := sliceToTypedArray([]float32{1.0, 1.0, 1.0, 1.0})
     bufferB := sliceToTypedArray([]float32{0.8, 0.8, 0.8, 0.8})
+    s := `<div>
+    <h1>Input values:</h1>
+    <pre>` + jsonStringify(bufferA) + `</pre>` +
+    `<pre>` + jsonStringify(bufferB) + `</pre>`
     bufferC := sliceToTypedArray([]float32{0, 0, 0, 0})
 
     // Create input and output maps
@@ -174,6 +179,18 @@ func main() {
     fmt.Println("Output value:", jsonStringify(outputC))
 
     js.Global().Set("outputC", outputC)
+
+    // to dom
+    s +=
+    `<h1>Output value:</h1>
+    <pre>` + jsonStringify(outputC) + `</pre>`
+
+
+    doc := js.Global().Get("document")
+
+    div := doc.Call("createElement", "div")
+    div.Set("innerHTML", s)
+    doc.Get("body").Call("appendChild", div)
 
 
 
