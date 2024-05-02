@@ -69,6 +69,8 @@ func main() {
         "dimensions": []any{2, 2},
     }
 
+    // panic("This is a panic")
+
     // Get the navigator.ml object
     navigator := js.Global().Get("navigator")
     // display the navigator object

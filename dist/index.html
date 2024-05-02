@@ -11,9 +11,20 @@ license that can be found in the LICENSE file.
 	<meta charset="utf-8" />
 	<script src="wasm_exec.js"></script>
 	<script>
+		function log(s) {
+			console.log(s);
+			document.getElementById("root").appendChild(document.createTextNode(s));
+			document.getElementById("root").appendChild(document.createElement("br"));
+		}
 		const go = new Go();
 		WebAssembly.instantiateStreaming(fetch("demo.wasm"), go.importObject).then(async (result) => {
-			go.run(result.instance);
+			go.run(result.instance).then((result) => {
+				log("Go exited: " + result);
+			}).catch((err) => {
+				console.error("Error running Go: ", err);
+			});
+		}).catch((err) => {
+			console.error("Error loading WebAssembly: ", err);
 		});
 		console.log("Go: ", go);
 	</script>
