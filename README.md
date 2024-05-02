@@ -9,3 +9,9 @@ This is a sample golang implementation of the WebNN API.
 WebNN API is still WIP and not yet available to all browsers. Check and enable necessary flags in your browser to test the WebNN API (if available).
 
 Also this repo is mostly using js glue code to interact with the WebNN API. You may be better off just using plain javascript / typescript to interact with the API.
+
+
+### References:
+
+- [WebNN API](https://webmachinelearning.github.io/webnn/)
+- [WebNN API Spec](https://webmachinelearning.github.io/webnn/#webnn-api)
