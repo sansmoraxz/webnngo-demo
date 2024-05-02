@@ -1,13 +1,12 @@
 //go:build js && wasm
+// +build js,wasm
 
 package main
 
 import (
 	"fmt"
 	"reflect"
-	"runtime"
 	"syscall/js"
-	"unsafe"
 )
 
 var (
@@ -19,68 +18,6 @@ var (
 
 	json = js.Global().Get("JSON")
 )
-
-type numeric interface {
-	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~float32 | ~float64
-}
-
-func getJsType(v any) string {
-	var jsType string
-	switch any(v).(type) {
-	case int8:
-		jsType = "Int8Array"
-	case int16:
-		jsType = "Int16Array"
-	case int32:
-		jsType = "Int32Array"
-	case int64:
-		jsType = "BigInt64Array"
-	case uint8:
-		jsType = "Uint8Array"
-	case uint16:
-		jsType = "Uint16Array"
-	case uint32:
-		jsType = "Uint32Array"
-	case uint64:
-		jsType = "BigUint64Array"
-	case float32:
-		jsType = "Float32Array"
-	case float64:
-		jsType = "Float64Array"
-	case int:
-		jsType = "Array"
-	default:
-		panic("unsupported type for sliceToTypedArray")
-	}
-	return jsType
-}
-
-func sliceToTypedArray[T numeric](slice []T) js.Value {
-	runtime.KeepAlive(slice)
-	sliceLen := len(slice)
-
-	if sliceLen == 0 {
-		return js.Global().Get("Array").New()
-	}
-
-	jsType := getJsType(slice[0])
-	sz := unsafe.Sizeof(slice[0])
-
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
-	h.Len *= int(sz)
-	h.Cap *= int(sz)
-	b := *(*[]byte)(unsafe.Pointer(h))
-
-	tmp := js.Global().Get("Uint8Array").New(len(b))
-	js.CopyBytesToJS(tmp, b)
-
-	return js.Global().Get(jsType).New(tmp.Get("buffer"), tmp.Get("byteOffset"), sliceLen)
-}
-
-func newTypedArray(t reflect.Type, length int) js.Value {
-	jsType := getJsType(reflect.Zero(t).Interface())
-	return js.Global().Get(jsType).New(length)
-}
 
 func getML() (js.Value, error) {
 	ml := navigator.Get("ml")
@@ -115,8 +52,25 @@ func getContext() (js.Value, error) {
 	return context, nil
 }
 
-func Error(err error) {
-	errorElem.Call("appendChild", document.Call("createTextNode", err.Error()))
+func buildGraph(context js.Value, operandType map[string]interface{}) (js.Value, error) {
+	builder := js.Global().Get("MLGraphBuilder").New(context)
+
+	constant := builder.Call("constant", map[string]interface{}{"dataType": "float32"}, sliceToTypedArray([]float32{0.2}))
+	
+	// Create the operation C = 0.2 * A + B
+
+	A := builder.Call("input", "A", operandType)
+	B := builder.Call("input", "B", operandType)
+	mulOp := builder.Call("mul", A, constant)
+
+	C := builder.Call("add", mulOp, B)
+
+	graph, err := Await(builder.Call("build", map[string]interface{}{"C": C}))
+	if err != nil {
+		Error(err)
+		return js.Undefined(), fmt.Errorf("error building graph")
+	}
+	return graph, nil
 }
 
 func main() {
@@ -137,22 +91,7 @@ func main() {
 	println("Creating graph")
 
 	// Create a new MLGraphBuilder
-	builder := js.Global().Get("MLGraphBuilder").New(context)
-
-	// Create the constant
-	constant := builder.Call("constant", map[string]interface{}{"dataType": "float32"}, sliceToTypedArray([]float32{0.2}))
-
-	// Create inputs A and B
-	A := builder.Call("input", "A", operandType)
-	B := builder.Call("input", "B", operandType)
-
-	// Create the operation C = 0.2 * A + B
-	mulOp := builder.Call("mul", A, constant)
-	C := builder.Call("add", mulOp, B)
-
-	// Build the graph
-
-	graph, err := Await(builder.Call("build", map[string]interface{}{"C": C}))
+	graph, err := buildGraph(context, operandType)
 	if err != nil {
 		Error(err)
 		panic(err)
