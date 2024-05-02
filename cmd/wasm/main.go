@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"reflect"
 	"runtime"
 	"syscall/js"
 	"unsafe"
@@ -21,10 +22,7 @@ func sliceToTypedArray[T numeric](slice []T) js.Value {
     runtime.KeepAlive(slice)
     sliceLen := len(slice)
     var jsType string
-    fmt.Printf("Type Slice[0]: %T\n", slice[0])
     sz := unsafe.Sizeof(slice[0])
-    fmt.Printf("Size of slice[0]: %d\n", sz)
-    fmt.Printf("Length of slice: %d\n", sliceLen)
     switch any(slice[0]).(type) {
     case int8:
         jsType = "Int8Array"
@@ -52,11 +50,15 @@ func sliceToTypedArray[T numeric](slice []T) js.Value {
         panic("unsupported type for sliceToTypedArray")
     }
 
-    v := js.Global().Get(jsType).New(sliceLen)
-    for i := 0; i < sliceLen; i++ {
-        v.SetIndex(i, slice[i])
-    }
-    return v
+    h := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
+    h.Len *= int(sz)
+    h.Cap *= int(sz)
+    b := *(*[]byte)(unsafe.Pointer(h))
+
+    tmp := js.Global().Get("Uint8Array").New(len(b))
+    js.CopyBytesToJS(tmp, b)
+
+    return js.Global().Get(jsType).New(tmp.Get("buffer"), tmp.Get("byteOffset"), sliceLen)
 }
 
 
