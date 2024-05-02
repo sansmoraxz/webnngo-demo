@@ -77,7 +77,12 @@ func main() {
     ml := navigator.Get("ml")
 
     // Create context
-    createContextPromise := ml.Call("createContext")
+    contextArgs := map[string]interface{}{
+        "deviceType": "gpu",
+        "powerPreference": "high-performance",
+    }
+
+    createContextPromise := ml.Call("createContext", contextArgs)
     contextChan := make(chan js.Value)
     createContextPromise.Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
         contextChan <- args[0]

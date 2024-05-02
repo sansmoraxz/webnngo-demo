@@ -1,5 +1,5 @@
 const operandType = { dataType: 'float32', dimensions: [2, 2] };
-const context = await navigator.ml.createContext();
+const context = await navigator.ml.createContext({deviceType: 'gpu', powerPreference: 'high-performance' });
 const builder = new MLGraphBuilder(context);
 // 1. Create a computational graph 'C = 0.2 * A + B'.
 const constant = builder.constant(
