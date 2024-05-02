@@ -1,6 +1,6 @@
-package main
+//go:build js && wasm
 
-// go:generate gopherjs build main.go -o main.js
+package main
 
 import (
 	"fmt"
