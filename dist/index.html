@@ -9,12 +9,15 @@ license that can be found in the LICENSE file.
 
 <head>
 	<meta charset="utf-8" />
+
+	<link rel="stylesheet" href="theme.css" />
 	<script src="wasm_exec.js"></script>
+
 	<script>
 		function log(s) {
 			console.log(s);
-			document.getElementById("root").appendChild(document.createTextNode(s));
-			document.getElementById("root").appendChild(document.createElement("br"));
+			document.getElementById("error").appendChild(document.createElement("br"));
+			document.getElementById("error").appendChild(document.createTextNode(s));
 		}
 		const go = new Go();
 		WebAssembly.instantiateStreaming(fetch("demo.wasm"), go.importObject).then(async (result) => {
@@ -31,8 +34,17 @@ license that can be found in the LICENSE file.
 </head>
 
 <body>
-	<div id="root">
-		<p>Loading...</p>
+	<div style="display: flex; flex-direction: column; justify-content: space-between; height: 80vh;">
+		<div style="display: flex; justify-content: center;">
+			<h1>
+				<font style="align-items: center;">Welcome to Go WebNN</font>
+			</h1>
+		</div>
+		<div id="root">
+			<p>Loading...</p>
+		</div>
+		<!-- error at bottom -->
+		<div id="error" style="color: red; font-family: monospace; white-space: pre-wrap;"></div>
 	</div>
 </body>
 

@@ -14,6 +14,9 @@ var (
     navigator = js.Global().Get("navigator")
     document = js.Global().Get("document")
 
+    rootElem = document.Call("getElementById", "root")
+    errorElem = document.Call("getElementById", "error")
+
     json = js.Global().Get("JSON")
 )
 
@@ -21,13 +24,10 @@ type numeric interface {
     ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~float32 | ~float64
 }
 
-func sliceToTypedArray[T numeric](slice []T) js.Value {
-    runtime.KeepAlive(slice)
-    sliceLen := len(slice)
+func getJsType(v any) string {
     var jsType string
-    sz := unsafe.Sizeof(slice[0])
-    switch any(slice[0]).(type) {
-    case int8:
+    switch any(v).(type) {
+        case int8:
         jsType = "Int8Array"
     case int16:
         jsType = "Int16Array"
@@ -52,7 +52,20 @@ func sliceToTypedArray[T numeric](slice []T) js.Value {
     default:
         panic("unsupported type for sliceToTypedArray")
     }
+    return jsType
+}
 
+func sliceToTypedArray[T numeric](slice []T) js.Value {
+    runtime.KeepAlive(slice)
+    sliceLen := len(slice)
+
+    if sliceLen == 0 {
+        return js.Global().Get("Array").New()
+    }
+
+    jsType := getJsType(slice[0])
+    sz := unsafe.Sizeof(slice[0])
+    
     h := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
     h.Len *= int(sz)
     h.Cap *= int(sz)
@@ -64,8 +77,24 @@ func sliceToTypedArray[T numeric](slice []T) js.Value {
     return js.Global().Get(jsType).New(tmp.Get("buffer"), tmp.Get("byteOffset"), sliceLen)
 }
 
-func getContext() (js.Value, error) {
+func newTypedArray(t reflect.Type, length int) js.Value {
+    jsType := getJsType(reflect.Zero(t).Interface())
+    return js.Global().Get(jsType).New(length)
+}
+
+func getML() (js.Value, error) {
     ml := navigator.Get("ml")
+    if ml.Truthy() {
+        return ml, nil
+    }
+    return js.Undefined(), fmt.Errorf("WebNN API is not available")
+}
+
+func getContext() (js.Value, error) {
+    ml, err := getML()
+    if err != nil {
+        return js.Undefined(), err
+    }
 
     // Create context
     contextArgs := map[string]interface{}{
@@ -75,7 +104,7 @@ func getContext() (js.Value, error) {
 
     context, err := Await(ml.Call("createContext", contextArgs))
     if err != nil {
-        println("GPU context creation failed: ", err)
+        Error(err)
         // try again with default context
         context, err = Await(ml.Call("createContext"))
         if err != nil {
@@ -87,6 +116,10 @@ func getContext() (js.Value, error) {
 }
 
 
+func Error(err error) {
+    errorElem.Call("appendChild", document.Call("createTextNode", err.Error()))
+}
+
 func main() {
     // Define the operand type
     operandType := map[string]interface{}{
@@ -96,6 +129,7 @@ func main() {
 
     context, err := getContext()
     if err != nil {
+        Error(err)
         panic(err)
     }
 
@@ -122,17 +156,24 @@ func main() {
 
     graph, err := Await(builder.Call("build", map[string]interface{}{"C": C}))
     if err != nil {
+        Error(err)
         panic(err)
     }
 
-    // Prepare inputs A and B
+    // these buffers will be converted to tensors by the runtime
     bufferA := sliceToTypedArray([]float32{1.0, 1.0, 1.0, 1.0})
     bufferB := sliceToTypedArray([]float32{0.8, 0.8, 0.8, 0.8})
+
+    // for the output
+    bufferC := newTypedArray(
+        reflect.TypeOf(float32(0)),
+        bufferA.Get("length").Int(),
+    )
+
     s := `<div>
-    <h1>Input values:</h1>
+    <h2>Input values:</h2>
     <pre>` + jsonStringify(bufferA) + `</pre>` +
     `<pre>` + jsonStringify(bufferB) + `</pre>`
-    bufferC := sliceToTypedArray([]float32{0, 0, 0, 0})
 
     // Create input and output maps
     inputs := map[string]interface{}{
@@ -144,15 +185,11 @@ func main() {
     }
 
     // Compute the results
-    computePromise := context.Call("compute", graph, inputs, outputs)
-    computeChan := make(chan js.Value)
-    computePromise.Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-        computeChan <- args[0]
-        return nil
-    }))
-
-    // Get the results
-    results := <-computeChan
+    results, err := Await(context.Call("compute", graph, inputs, outputs))
+    if err != nil {
+        Error(err)
+        panic(err)
+    }
 
     // Get the output value from results
     outputC := results.Get("outputs").Get("C")
@@ -164,12 +201,12 @@ func main() {
 
     // to dom
     s +=
-    `<h1>Output value:</h1>
+    `<h2>Output value:</h2>
     <pre>` + jsonStringify(outputC) + `</pre>`
 
 
-    div := document.Call("getElementById", "root")
-    div.Set("innerHTML", s)
+    
+    rootElem.Set("innerHTML", s)
 
     // Block the main goroutine to keep the program running until the computation is complete
     select {}
