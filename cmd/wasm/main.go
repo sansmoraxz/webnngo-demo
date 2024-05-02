@@ -167,9 +167,8 @@ func main() {
 
     doc := js.Global().Get("document")
 
-    div := doc.Call("createElement", "div")
+    div := doc.Call("getElementById", "root")
     div.Set("innerHTML", s)
-    doc.Get("body").Call("appendChild", div)
 
     // Block the main goroutine to keep the program running until the computation is complete
     select {}
