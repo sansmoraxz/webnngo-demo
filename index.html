@@ -12,12 +12,17 @@ license that can be found in the LICENSE file.
 	<script src="wasm_exec.js"></script>
 	<script>
 		const go = new Go();
-		WebAssembly.instantiateStreaming(fetch("demo.wasm"), go.importObject).then((result) => {
+		WebAssembly.instantiateStreaming(fetch("demo.wasm"), go.importObject).then(async (result) => {
 			go.run(result.instance);
 		});
+		console.log("Go: ", go);
 	</script>
 </head>
 
-<body></body>
+<body>
+	<div id="root">
+		<p>Loading...</p>
+	</div>
+</body>
 
 </html>
