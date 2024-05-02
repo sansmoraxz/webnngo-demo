@@ -4,7 +4,6 @@ package main
 
 import (
 	"fmt"
-	"reflect"
 	"runtime"
 	"syscall/js"
 	"unsafe"
@@ -22,7 +21,6 @@ func sliceToTypedArray[T numeric](slice []T) js.Value {
     runtime.KeepAlive(slice)
     sliceLen := len(slice)
     var jsType string
-    var byteSize int
     fmt.Printf("Type Slice[0]: %T\n", slice[0])
     sz := unsafe.Sizeof(slice[0])
     fmt.Printf("Size of slice[0]: %d\n", sz)
@@ -30,42 +28,29 @@ func sliceToTypedArray[T numeric](slice []T) js.Value {
     switch any(slice[0]).(type) {
     case int8:
         jsType = "Int8Array"
-        byteSize = 1
     case int16:
         jsType = "Int16Array"
-        byteSize = 2
     case int32:
         jsType = "Int32Array"
-        byteSize = 4
     case int64:
         jsType = "BigInt64Array"
-        byteSize = 8
     case uint8:
         jsType = "Uint8Array"
-        byteSize = 1
     case uint16:
         jsType = "Uint16Array"
-        byteSize = 2
     case uint32:
         jsType = "Uint32Array"
-        byteSize = 4
     case uint64:
         jsType = "BigUint64Array"
-        byteSize = 8
     case float32:
         jsType = "Float32Array"
-        byteSize = 4
     case float64:
         jsType = "Float64Array"
-        byteSize = 8
     case int:
         jsType = "Array"
-        byteSize = int(reflect.TypeOf(slice[0]).Size())
     default:
         panic("unsupported type for sliceToTypedArray")
     }
-    fmt.Printf("jsType: %s\n", jsType)
-    fmt.Printf("byteSize: %d\n", byteSize)
 
     v := js.Global().Get(jsType).New(sliceLen)
     for i := 0; i < sliceLen; i++ {
@@ -81,19 +66,6 @@ func main() {
         "dataType":   "float32",
         "dimensions": []any{2, 2},
     }
-
-
-    v0 := js.Global().Get("Array").New(5)
-    for i := 0; i < v0.Length(); i++ {
-        v0.SetIndex(i, i)
-    }
-    fmt.Printf("Array: %#v\n", jsonStringify(v0))
-    js.Global().Set("operandType", operandType)
-    _v := js.ValueOf(operandType)
-    fmt.Printf("OperandType: %#v\n", jsonStringify(_v))
-
-    // panic("stop")
-
 
     // Get the navigator.ml object
     navigator := js.Global().Get("navigator")
@@ -191,8 +163,6 @@ func main() {
     div := doc.Call("createElement", "div")
     div.Set("innerHTML", s)
     doc.Get("body").Call("appendChild", div)
-
-
 
     // Block the main goroutine to keep the program running until the computation is complete
     select {}
