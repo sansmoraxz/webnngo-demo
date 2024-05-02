@@ -10,9 +10,12 @@ import (
 	"unsafe"
 )
 
-func jsonStringify(v js.Value) string {
-    return js.Global().Get("JSON").Call("stringify", v).String()
-}
+var (
+    navigator = js.Global().Get("navigator")
+    document = js.Global().Get("document")
+
+    json = js.Global().Get("JSON")
+)
 
 type numeric interface {
     ~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~float32 | ~float64
@@ -61,21 +64,7 @@ func sliceToTypedArray[T numeric](slice []T) js.Value {
     return js.Global().Get(jsType).New(tmp.Get("buffer"), tmp.Get("byteOffset"), sliceLen)
 }
 
-
-func main() {
-    // Define the operand type
-    operandType := map[string]interface{}{
-        "dataType":   "float32",
-        "dimensions": []any{2, 2},
-    }
-
-    // panic("This is a panic")
-
-    // Get the navigator.ml object
-    navigator := js.Global().Get("navigator")
-    // display the navigator object
-    fmt.Printf("Navigator: %#v\n", jsonStringify(navigator))
-
+func getContext() (js.Value, error) {
     ml := navigator.Get("ml")
 
     // Create context
@@ -84,18 +73,34 @@ func main() {
         "powerPreference": "high-performance",
     }
 
-    createContextPromise := ml.Call("createContext", contextArgs)
-    contextChan := make(chan js.Value)
-    createContextPromise.Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-        contextChan <- args[0]
-        return nil
-    }))
+    context, err := Await(ml.Call("createContext", contextArgs))
+    if err != nil {
+        println("GPU context creation failed: ", err)
+        // try again with default context
+        context, err = Await(ml.Call("createContext"))
+        if err != nil {
+            return js.Undefined(), fmt.Errorf("error creating context")
+        }
+    }
 
-    // Get the context value
-    context := <-contextChan
+    return context, nil
+}
+
+
+func main() {
+    // Define the operand type
+    operandType := map[string]interface{}{
+        "dataType":   "float32",
+        "dimensions": []any{2, 2},
+    }
+
+    context, err := getContext()
+    if err != nil {
+        panic(err)
+    }
 
     println("Context created")
-    println("Context: ", jsonStringify(context))
+
     println("Creating graph")
 
     // Create a new MLGraphBuilder
@@ -114,15 +119,11 @@ func main() {
     C := builder.Call("add", mulOp, B)
 
     // Build the graph
-    buildPromise := builder.Call("build", map[string]interface{}{"C": C})
-    graphChan := make(chan js.Value)
-    buildPromise.Call("then", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-        graphChan <- args[0]
-        return nil
-    }))
 
-    // Get the graph value
-    graph := <-graphChan
+    graph, err := Await(builder.Call("build", map[string]interface{}{"C": C}))
+    if err != nil {
+        panic(err)
+    }
 
     // Prepare inputs A and B
     bufferA := sliceToTypedArray([]float32{1.0, 1.0, 1.0, 1.0})
@@ -167,9 +168,7 @@ func main() {
     <pre>` + jsonStringify(outputC) + `</pre>`
 
 
-    doc := js.Global().Get("document")
-
-    div := doc.Call("getElementById", "root")
+    div := document.Call("getElementById", "root")
     div.Set("innerHTML", s)
 
     // Block the main goroutine to keep the program running until the computation is complete
