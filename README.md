@@ -10,6 +10,8 @@ Please ensure that you have WebNN api enabled in your browser.
 
 For chromium browsers you may do it through `chrome://flags/#web-machine-learning-neural-network` and change the value to `Enabled`. It is not yet available in firefox though.
 
+GPU is running in Windows 11 or Linux (with WebGPU enabled). Otherwise it will fallback to using CPU.
+
 ### Conclusion:
 
 WebNN API is still WIP and not yet available to all browsers. Check and enable necessary flags in your browser to test the WebNN API (if available).
