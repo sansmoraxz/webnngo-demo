@@ -8,7 +8,7 @@ This is a simple golang implementation of the WebNN API. It will try to build th
 
 Please ensure that you have WebNN api enabled in your browser.
 
-For chromium browsers you may do it through `chrome://flags` then search for `Enables WebNN API` and change the value to `Enabled`. It is not yet available in firefox though.
+For chromium browsers you may do it through `chrome://flags/#web-machine-learning-neural-network` and change the value to `Enabled`. It is not yet available in firefox though.
 
 ### Conclusion:
 
